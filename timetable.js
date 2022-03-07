@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { GoogleSpreadsheet } = require("google-spreadsheet");
-const { markAttendence } = require("./attendencelist");
+// const { markAttendence } = require("./attendencelist");
 const moment = require("moment");
 require("dotenv").config();
 
@@ -68,13 +68,13 @@ const getDay = (dayIndex) => {
   }
 };
 
-const getTimeTable = (startIndex, endIndex, rows, facultyName, dept, user) => {
+const getTimeTable = (startIndex, endIndex, rows) => {
   let date = new Date();
   let dayOfWeek = getDay(moment(date).day());
   let classTimings = rows[startIndex + 1]._rawData;
   let currentClassTimingIndex = getCurrentTimeIndex(classTimings);
   let todaysClassList = [];
-  let markAttendenceResponse = "";
+  // let markAttendenceResponse = "";
 
   for (let i = startIndex + 1; i < endIndex; i++) {
     if (dayOfWeek === rows[i]._rawData[0]) {
@@ -82,25 +82,36 @@ const getTimeTable = (startIndex, endIndex, rows, facultyName, dept, user) => {
     }
   }
 
-  if (todaysClassList[currentClassTimingIndex] == facultyName) {
-    markAttendenceResponse = markAttendence(
-      currentClassTimingIndex,
-      dept,
-      user
-    );
-  }
+  // if (todaysClassList[currentClassTimingIndex] == facultyName) {
+  // console.log(
+  //   currentClassTimingIndex,
+  //   " ",
+  //   todaysClassList[currentClassTimingIndex]
+  // );
+  // markAttendenceResponse = markAttendence(
+  //   currentClassTimingIndex,
+  //   dept,
+  //   user
+  // );
+  // }
 
-  return markAttendenceResponse;
+  // return markAttendenceResponse;
+  return {
+    classTimingIndex: currentClassTimingIndex,
+    facultyName: todaysClassList[currentClassTimingIndex],
+  };
 };
 
-// this endpoint is triggered on QR Scanning
-router.post("/tt/:dept", async (req, res) => {
+// this endpoint is triggered on website render
+router.post("/currentClassDetails/:classYear", async (req, res) => {
   const GOOGLE_SHEET_ID = process.env.GOOGLE_SHEET_ID;
   const doc = new GoogleSpreadsheet(GOOGLE_SHEET_ID);
-  const { facultyName, user } = req.body;
-  const { dept } = req.params;
+  // const { facultyName } = req.body;
+  const { classYear } = req.params;
   // facultyName
   // user:{ userId } userId=BCA/20/810
+  // classYear: BCA-2ND-YEAR / BCA-1ST-YEAR
+  let responseObject = {};
 
   await doc.useServiceAccountAuth({
     client_email: process.env.CLIENT_EMAIL,
@@ -117,19 +128,18 @@ router.post("/tt/:dept", async (req, res) => {
   let rows = await sheet.getRows();
   for (let i = 0; i < rows.length; i++) {
     if (rows[i]._rawData.length == 1) {
-      if (rows[i]._rawData[0] == `${req.params.dept}-START`) {
+      if (rows[i]._rawData[0] == `${classYear}-START`) {
         startIndex = i;
       }
-      if (rows[i]._rawData[0] == `${req.params.dept}-END`) {
+      if (rows[i]._rawData[0] == `${classYear}-END`) {
         endIndex = i;
       }
     }
   }
-  getTimeTable(startIndex, endIndex, rows, facultyName, dept, user).then(
-    (response) => {
-      return res.status(200).json({ message: response });
-    }
-  );
+
+  responseObject = getTimeTable(startIndex, endIndex, rows);
+
+  return res.status(200).json({ responseObject });
 });
 
 /* list of absentees */
